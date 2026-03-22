@@ -161,18 +161,19 @@ export interface DepsStatus {
  * Called once at startup. Never throws — missing deps just disable features.
  */
 export async function ensureDeps(): Promise<DepsStatus> {
-  const missing = DEPS.filter((d) => !d.check());
+  // Run all checks once and reuse results
+  const results = DEPS.map((d) => ({ dep: d, ok: d.check() }));
+  const missing = results.filter((r) => !r.ok).map((r) => r.dep);
 
   if (missing.length === 0) {
-    const installed = DEPS.map((d) => `${c.green}✓${c.reset} ${d.name}`).join("  ");
+    const installed = results.map((r) => `${c.green}✓${c.reset} ${r.dep.name}`).join("  ");
     console.log(`依赖: ${installed}`);
     console.log();
     return buildStatus();
   }
 
   // Show what's present and what needs installing
-  for (const dep of DEPS) {
-    const ok = dep.check();
+  for (const { dep, ok } of results) {
     console.log(
       `${ok ? `${c.green}✓` : `${c.yellow}⬇`}${c.reset} ${dep.name.padEnd(10)} ${c.dim}${dep.purpose}${c.reset}`,
     );

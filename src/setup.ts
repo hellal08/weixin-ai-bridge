@@ -38,6 +38,7 @@ export function loadConfig(): AgentConfig | null {
 function saveConfig(config: AgentConfig): void {
   fs.mkdirSync(CONFIG_DIR, { recursive: true });
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
+  try { fs.chmodSync(CONFIG_PATH, 0o600); } catch { /* non-POSIX platforms */ }
 }
 
 function maskKey(key: string): string {

@@ -31,7 +31,8 @@ const STREAM_THROTTLE_MS = 800;
 const SESSION_EXPIRY_CODE = -14;
 const SESSION_EXPIRY_INITIAL_WAIT_MS = 60_000;
 
-const contextTokens = new Map<string, string>();
+const CONTEXT_TOKEN_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours, matching agent idle cleanup
+const contextTokens = new Map<string, { ct: string; ts: number }>();
 
 function loadSyncBuf(): string {
   try {
@@ -86,15 +87,35 @@ async function processMessage(
   const contextToken = msg.context_token ?? "";
   if (!userId) return;
 
-  if (contextToken) contextTokens.set(userId, contextToken);
-  const ct = contextTokens.get(userId);
-  if (!ct) {
+  if (contextToken) contextTokens.set(userId, { ct: contextToken, ts: Date.now() });
+  const entry = contextTokens.get(userId);
+  if (!entry) {
     console.log(`[monitor] 无 contextToken, 跳过 from=${userId}`);
     return;
   }
+  const ct = entry.ct;
 
   const textBody = extractTextBody(msg);
   const media = detectMediaTypes(msg);
+
+  // Handle special commands before any expensive media work
+  if (textBody === "/reset" || textBody === "/清除") {
+    agent.reset(userId);
+    await sendMessage(cfg, userId, "✅ 对话已重置", ct);
+    return;
+  }
+  if (textBody === "/help" || textBody === "/帮助") {
+    await sendMessage(cfg, userId, [
+      `🤖 微信 × ${agent.name}`,
+      "",
+      `直接发消息即可与 ${agent.name} 对话。`,
+      "",
+      "命令:",
+      "/reset 或 /清除 — 重置对话",
+      "/help 或 /帮助 — 显示帮助",
+    ].join("\n"), ct);
+    return;
+  }
 
   // Download images, files, and video
   const downloadedImages: ImageAttachment[] = [];
@@ -170,26 +191,6 @@ async function processMessage(
   const previewText = effectiveText || `[${downloadedImages.length}张图片]`;
   console.log(`[monitor] 收到消息 from=${userId}: ${previewText.slice(0, 80)}${previewText.length > 80 ? "..." : ""}`);
 
-  // Handle special commands
-  if (textBody === "/reset" || textBody === "/清除") {
-    agent.reset(userId);
-    await sendMessage(cfg, userId, "✅ 对话已重置", ct);
-    return;
-  }
-
-  if (textBody === "/help" || textBody === "/帮助") {
-    await sendMessage(cfg, userId, [
-      `🤖 微信 × ${agent.name}`,
-      "",
-      `直接发消息即可与 ${agent.name} 对话。`,
-      "",
-      "命令:",
-      "/reset 或 /清除 — 重置对话",
-      "/help 或 /帮助 — 显示帮助",
-    ].join("\n"), ct);
-    return;
-  }
-
   // Send typing indicator
   let typingTicket: string | undefined;
   try {
@@ -215,7 +216,7 @@ async function processMessage(
         const response = await agent.ask(userId, effectiveText);
         const cleaned = stripMarkdown(response);
         for (const chunk of chunkText(cleaned)) {
-          await sendMessage(cfg, userId, chunk, contextTokens.get(userId) ?? ct);
+          await sendMessage(cfg, userId, chunk, contextTokens.get(userId)?.ct ?? ct);
         }
         console.log(`[monitor] 已回复 to=${userId} (${cleaned.length} chars)`);
       }
@@ -227,7 +228,7 @@ async function processMessage(
       const cleaned = stripMarkdown(response);
       const chunks = chunkText(cleaned);
       for (const chunk of chunks) {
-        const latestCt = contextTokens.get(userId) ?? ct;
+        const latestCt = contextTokens.get(userId)?.ct ?? ct;
         await sendMessage(cfg, userId, chunk, latestCt);
       }
       console.log(`[monitor] 已回复 to=${userId} (${cleaned.length} chars)`);
@@ -256,7 +257,7 @@ async function runStreamingReply(
   const sendUpdate = async (text: string, done: boolean) => {
     const cleaned = stripMarkdown(text);
     if (cleaned === lastSentText && !done) return;
-    const latestCt = contextTokens.get(userId) ?? ct;
+    const latestCt = contextTokens.get(userId)?.ct ?? ct;
     try {
       await sendMessageStreaming(cfg, userId, cleaned, latestCt, clientId, done);
       lastSentText = cleaned;
@@ -293,7 +294,7 @@ async function runStreamingReply(
 
   const finalText = stripMarkdown(response || latestText);
   if (finalText) {
-    const latestCt = contextTokens.get(userId) ?? ct;
+    const latestCt = contextTokens.get(userId)?.ct ?? ct;
     await sendMessageStreaming(cfg, userId, finalText, latestCt, clientId, true);
   }
 
@@ -342,6 +343,16 @@ export async function startMonitor(
   let getUpdatesBuf = loadSyncBuf();
   let nextTimeoutMs = 35_000;
   let consecutiveFailures = 0;
+  let lastContextTokenCleanup = Date.now();
+
+  // Periodically evict stale context tokens (same 2-hour TTL as agent conversation cleanup)
+  function evictStaleContextTokens(): void {
+    const now = Date.now();
+    for (const [uid, entry] of contextTokens) {
+      if (now - entry.ts > CONTEXT_TOKEN_TTL_MS) contextTokens.delete(uid);
+    }
+    lastContextTokenCleanup = now;
+  }
 
   while (!abortSignal?.aborted) {
     try {
@@ -410,6 +421,9 @@ export async function startMonitor(
           console.error(`[monitor] 处理消息出错:`, err);
         }),
       ));
+
+      // Periodic cleanup of stale context tokens (every 30 minutes)
+      if (Date.now() - lastContextTokenCleanup > 30 * 60 * 1000) evictStaleContextTokens();
     } catch (err) {
       if (abortSignal?.aborted) break;
       consecutiveFailures++;

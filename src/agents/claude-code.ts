@@ -271,6 +271,7 @@ export class ClaudeCodeAgent implements AgentBackend {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
+      child.stdin.on("error", () => {}); // suppress EPIPE if child exits before consuming stdin
       child.stdin.write(inputMsg + "\n");
       child.stdin.end();
 

@@ -110,6 +110,8 @@ export class AnthropicAgent implements AgentBackend {
       console.log(`[anthropic] 完成 (${elapsed}s, ${reply.length} chars)`);
       return reply || "[无回复]";
     } catch (err) {
+      // Remove the user message so history stays balanced for the next call
+      history.pop();
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[anthropic] 错误:`, msg);
       return `⚠️ Anthropic 出错: ${sanitizeErrorMessage(msg)}`;
@@ -212,6 +214,7 @@ export class AnthropicAgent implements AgentBackend {
       console.log(`[anthropic] 流式完成 (${elapsed}s, ${accumulated.length} chars)`);
       return accumulated || "[无回复]";
     } catch (err) {
+      history.pop(); // remove user message so history stays balanced
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[anthropic] 流式错误:`, msg);
       return `⚠️ Anthropic 出错: ${sanitizeErrorMessage(msg)}`;

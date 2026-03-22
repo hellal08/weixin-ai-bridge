@@ -149,6 +149,7 @@ export class OllamaAgent implements AgentBackend {
       }
 
       let accumulated = "";
+      let doneSent = false;
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -171,17 +172,18 @@ export class OllamaAgent implements AgentBackend {
             };
             if (parsed.message?.content) {
               accumulated += parsed.message.content;
-              onChunk(accumulated, !!parsed.done);
+              if (!parsed.done) onChunk(accumulated, false);
             }
-            if (parsed.done) {
+            if (parsed.done && !doneSent) {
+              doneSent = true;
               onChunk(accumulated, true);
             }
           } catch { /* skip malformed lines */ }
         }
       }
 
-      // Ensure done is signalled
-      if (accumulated) {
+      // Ensure done is signalled exactly once
+      if (!doneSent && accumulated) {
         onChunk(accumulated, true);
       }
 

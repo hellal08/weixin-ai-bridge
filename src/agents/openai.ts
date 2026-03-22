@@ -106,6 +106,7 @@ export class OpenAIAgent implements AgentBackend {
       console.log(`[openai] 完成 (${elapsed}s, ${reply.length} chars)`);
       return reply || "[无回复]";
     } catch (err) {
+      history.pop(); // remove user message so history stays balanced
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[openai] 错误:`, msg);
       return `⚠️ OpenAI 出错: ${sanitizeErrorMessage(msg)}`;
@@ -203,6 +204,7 @@ export class OpenAIAgent implements AgentBackend {
       console.log(`[openai] 流式完成 (${elapsed}s, ${accumulated.length} chars)`);
       return accumulated || "[无回复]";
     } catch (err) {
+      history.pop(); // remove user message so history stays balanced
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[openai] 流式错误:`, msg);
       return `⚠️ OpenAI 出错: ${sanitizeErrorMessage(msg)}`;

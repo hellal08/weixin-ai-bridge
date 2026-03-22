@@ -5,7 +5,7 @@
 
 import { createDecipheriv, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
-import { join, extname } from "node:path";
+import { join, extname, basename } from "node:path";
 import { writeFileSync, unlinkSync, readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -118,7 +118,10 @@ export async function downloadMediaItem(item: MessageItem): Promise<DownloadedMe
 
 /** Save media to a temp file and return the path. Caller must delete when done. */
 export function saveTempFile(media: DownloadedMedia): string {
-  const name = media.fileName ?? `wx_${media.type}_${randomUUID()}.${extFor(media)}`;
+  // basename() strips any directory traversal sequences from user-supplied filenames
+  const name = media.fileName
+    ? basename(media.fileName)
+    : `wx_${media.type}_${randomUUID()}.${extFor(media)}`;
   const filePath = join(tmpdir(), name);
   writeFileSync(filePath, media.data);
   return filePath;
@@ -342,7 +345,7 @@ async function getVideoDuration(videoPath: string): Promise<number> {
   try {
     const { stdout } = await execFileAsync(FFPROBE, [
       "-v", "quiet", "-print_format", "json", "-show_streams", videoPath,
-    ]);
+    ], { timeout: 30_000 });
     const info = JSON.parse(stdout) as { streams?: { duration?: string }[] };
     const dur = info.streams?.find((s) => s.duration)?.duration;
     return dur ? parseFloat(dur) : 10;
