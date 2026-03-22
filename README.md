@@ -22,7 +22,7 @@
 ## 简介 · Overview
 
 ```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/yansc153/weixin-ai-bridge/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yansc153/weixin-ai-bridge/main/install.sh | bash
 ```
 
 **一条命令，让微信接入任意 AI。** 内置交互式配置向导，无需额外开发。
@@ -84,7 +84,7 @@ curl -fsSL https://cdn.jsdelivr.net/gh/yansc153/weixin-ai-bridge/install.sh | ba
 ### macOS / Linux（国内推荐 · China-friendly）
 
 ```bash
-curl -fsSL https://cdn.jsdelivr.net/gh/yansc153/weixin-ai-bridge/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yansc153/weixin-ai-bridge/main/install.sh | bash
 ```
 
 > 自动完成：Xcode CLT · Homebrew（国内镜像）· Node.js · npm 镜像 · pip 镜像
@@ -92,7 +92,7 @@ curl -fsSL https://cdn.jsdelivr.net/gh/yansc153/weixin-ai-bridge/install.sh | ba
 ### Windows（PowerShell 管理员 · Run as Administrator）
 
 ```powershell
-irm https://cdn.jsdelivr.net/gh/yansc153/weixin-ai-bridge/install.ps1 | iex
+irm https://raw.githubusercontent.com/yansc153/weixin-ai-bridge/main/install.ps1 | iex
 ```
 
 > 自动完成：winget · Node.js · Python · ffmpeg · pandoc · poppler · npm 镜像 · pip 镜像
