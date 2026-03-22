@@ -120,4 +120,4 @@ npm run build
 npm install -g --ignore-scripts .
 cd /
 
-exec weixin-ai-bridge "$@"
+exec weixin-ai-bridge "$@" </dev/tty
