@@ -123,5 +123,5 @@ Write-Host "环境准备完成，正在安装 weixin-ai-bridge..." -ForegroundCo
 Write-Host ""
 
 # Install globally from GitHub (works without npm publish)
-npm install -g yansc153/weixin-ai-bridge
+npm install -g git+https://github.com/yansc153/weixin-ai-bridge.git
 weixin-ai-bridge @args

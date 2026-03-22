@@ -110,5 +110,5 @@ echo -e "${BOLD}${GREEN}环境准备完成，正在安装 weixin-ai-bridge...${R
 echo ""
 
 # Install globally from GitHub (works without npm publish)
-npm install -g yansc153/weixin-ai-bridge
+npm install -g git+https://github.com/yansc153/weixin-ai-bridge.git
 exec weixin-ai-bridge "$@"
