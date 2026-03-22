@@ -1,0 +1,39 @@
+{
+  "name": "weixin-ai-bridge",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "一条命令，让微信连上 AI — Bridge WeChat to any AI (Claude Code, OpenAI, Anthropic, Ollama, etc.)",
+  "bin": {
+    "weixin-ai-bridge": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "wechat",
+    "weixin",
+    "ai",
+    "bridge",
+    "claude",
+    "openai",
+    "ollama",
+    "chatbot"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
