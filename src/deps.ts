@@ -13,14 +13,19 @@ const c = {
 // ── Detection helpers ─────────────────────────────────────────────────────────
 
 function which(cmd: string): string | null {
+  const finder = process.platform === "win32" ? "where" : "which";
   try {
-    return execSync(`which ${cmd}`, { encoding: "utf-8", stdio: ["pipe","pipe","pipe"] }).trim();
+    const out = execSync(`${finder} ${cmd}`, { encoding: "utf-8", stdio: ["pipe","pipe","pipe"] }).trim();
+    return out.split(/\r?\n/)[0] || null;
   } catch { return null; }
 }
 
 function hasBrew(): boolean { return !!which("brew"); }
 function hasPip3(): boolean { return !!which("pip3") || !!which("pip"); }
-function pip3(): string { return which("pip3") ? "pip3" : "pip"; }
+function pip3(): string {
+  if (process.platform === "win32") return which("pip") ? "pip" : "python -m pip";
+  return which("pip3") ? "pip3" : "pip";
+}
 
 // ── Installers ────────────────────────────────────────────────────────────────
 
@@ -55,11 +60,28 @@ function pipInstall(pkg: string): InstallResult {
   } catch { return "failed"; }
 }
 
+function wingetInstall(pkg: string): InstallResult {
+  if (!which("winget")) return "skipped";
+  try {
+    execSync(
+      `winget install -e --id ${pkg} --accept-source-agreements --accept-package-agreements --silent`,
+      { stdio: "inherit" },
+    );
+    return "ok";
+  } catch { return "failed"; }
+}
+
 function installForPlatform(
   macPkg: string,
   linuxPkg: string,
+  winPkg?: string,
   pipPkg?: string,
 ): InstallResult {
+  if (process.platform === "win32") {
+    if (winPkg) { const r = wingetInstall(winPkg); if (r !== "skipped") return r; }
+    if (pipPkg) return pipInstall(pipPkg);
+    return "skipped";
+  }
   if (process.platform === "darwin") {
     const r = brewInstall(macPkg);
     if (r !== "skipped") return r;
@@ -90,14 +112,13 @@ const DEPS: Dep[] = [
     name: "ffmpeg",
     purpose: "视频抽帧 + 音频提取",
     check: () => !!which("ffmpeg"),
-    install: () => installForPlatform("ffmpeg", "ffmpeg"),
+    install: () => installForPlatform("ffmpeg", "ffmpeg", "Gyan.FFmpeg"),
   },
   {
     name: "whisper",
     purpose: "本地语音/视频转录",
     check: () => !!which("whisper"),
     install: () => {
-      // Try brew cask first (macOS), then pip
       if (process.platform === "darwin" && hasBrew()) {
         const r = brewInstall("openai-whisper");
         if (r === "ok") return "ok";
@@ -109,19 +130,19 @@ const DEPS: Dep[] = [
     name: "pdftotext",
     purpose: "PDF 文本提取",
     check: () => !!which("pdftotext"),
-    install: () => installForPlatform("poppler", "poppler-utils"),
+    install: () => installForPlatform("poppler", "poppler-utils", "oschwartz10612.poppler"),
   },
   {
     name: "pandoc",
     purpose: "Word/PPT/EPUB 文本提取",
     check: () => !!which("pandoc"),
-    install: () => installForPlatform("pandoc", "pandoc"),
+    install: () => installForPlatform("pandoc", "pandoc", "JohnMacFarlane.Pandoc"),
   },
   {
     name: "xlsx2csv",
     purpose: "Excel 文本提取",
     check: () => !!which("xlsx2csv"),
-    install: () => pipInstall("xlsx2csv"),
+    install: () => installForPlatform("", "", undefined, "xlsx2csv"),
   },
 ];
 
@@ -191,6 +212,13 @@ function buildStatus(): DepsStatus {
 }
 
 function installHint(name: string): string {
+  if (process.platform === "win32") {
+    if (name === "ffmpeg")    return "winget install Gyan.FFmpeg";
+    if (name === "whisper")   return "pip install openai-whisper";
+    if (name === "pdftotext") return "winget install oschwartz10612.poppler";
+    if (name === "pandoc")    return "winget install JohnMacFarlane.Pandoc";
+    if (name === "xlsx2csv")  return "pip install xlsx2csv";
+  }
   if (name === "ffmpeg") return process.platform === "darwin" ? "brew install ffmpeg" : "apt install ffmpeg";
   if (name === "whisper") return "pip3 install openai-whisper";
   if (name === "pdftotext") return process.platform === "darwin" ? "brew install poppler" : "apt install poppler-utils";

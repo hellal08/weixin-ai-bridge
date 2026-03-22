@@ -81,6 +81,26 @@ npx weixin-ai-bridge
 
 ---
 
+## 安装 · Install
+
+### macOS / Linux（国内推荐 · China-friendly）
+
+```bash
+curl -fsSL https://cdn.jsdelivr.net/gh/yansc153/weixin-ai-bridge/install.sh | bash
+```
+
+> 自动完成：Xcode CLT · Homebrew（国内镜像）· Node.js · npm 镜像 · pip 镜像
+
+### Windows（PowerShell 管理员 · Run as Administrator）
+
+```powershell
+irm https://cdn.jsdelivr.net/gh/yansc153/weixin-ai-bridge/install.ps1 | iex
+```
+
+> 自动完成：winget · Node.js · Python · ffmpeg · pandoc · poppler · npm 镜像 · pip 镜像
+
+---
+
 ## 快速开始 · Quick Start
 
 ### 前置要求
@@ -89,7 +109,7 @@ npx weixin-ai-bridge
 - 微信 iLink Bot 账号（[申请地址](https://ilink.qq.com)）
 - 至少一个 AI 后端（Claude Code CLI 推荐）
 
-### 安装
+### 直接运行
 
 ```bash
 # 直接运行（推荐）

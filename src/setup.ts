@@ -46,8 +46,11 @@ function maskKey(key: string): string {
 }
 
 function whichSync(cmd: string): string | null {
-  try { return execSync(`which ${cmd}`, { encoding: "utf-8" }).trim(); }
-  catch { return null; }
+  const finder = process.platform === "win32" ? "where" : "which";
+  try {
+    const out = execSync(`${finder} ${cmd}`, { encoding: "utf-8" }).trim();
+    return out.split(/\r?\n/)[0] || null;
+  } catch { return null; }
 }
 
 function createRL(): readline.Interface {
@@ -118,10 +121,6 @@ async function fetchModels(
   agent: AgentConfig["agent"], apiBase: string, apiKey?: string,
 ): Promise<string[]> {
   try {
-    if (agent === "ollama") {
-      const data = (await fetchJSON(`${apiBase}/api/tags`)) as { models?: { name: string }[] };
-      return (data.models ?? []).map((m) => m.name);
-    }
     const headers: Record<string, string> = {};
     if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
     const data = (await fetchJSON(`${apiBase}/v1/models`, headers)) as {
@@ -144,14 +143,6 @@ async function testConnection(config: AgentConfig): Promise<boolean> {
     if (config.agent === "gemini") {
       execSync("gemini --version", { encoding: "utf-8", timeout: 5000 });
       return true;
-    }
-    if (config.agent === "ollama") {
-      const body = JSON.stringify({ model: config.model, prompt: "Say hi", stream: false });
-      const res = await fetch(`${config.apiBase}/api/generate`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body, signal: AbortSignal.timeout(15000),
-      });
-      return res.ok;
     }
     const base = config.apiBase?.replace(/\/+$/, "");
     const body = JSON.stringify({
@@ -219,9 +210,8 @@ export async function runSetup(): Promise<AgentConfig> {
   if (hasCodex)  opts.push({ label: "Codex CLI    (OpenAI, local CLI)", value: "codex" });
   if (hasGemini) opts.push({ label: "Gemini CLI   (Google, local CLI)", value: "gemini" });
   opts.push(
-    { label: "OpenAI-Compatible API", value: "openai" },
-    { label: "Anthropic API", value: "anthropic" },
-    { label: "Ollama (local)", value: "ollama" },
+    { label: "OpenAI 兼容 API  (DeepSeek · Moonshot · 通义 · 智谱 · GPT 等)", value: "openai" },
+    { label: "Anthropic API  (Claude，需翻墙或代理)", value: "anthropic" },
   );
 
   const idx = await choose(rl, "Select AI backend:", opts.map((o) => o.label));
@@ -240,21 +230,36 @@ export async function runSetup(): Promise<AgentConfig> {
   }
 
   // ── API-based backends
-  if (config.agent === "openai" || config.agent === "anthropic" || config.agent === "ollama") {
-    const defs: Record<string, { base: string; model: string }> = {
-      openai:    { base: "https://api.openai.com",    model: "gpt-4o" },
-      anthropic: { base: "https://api.anthropic.com",  model: "claude-sonnet-4-6-20250514" },
-      ollama:    { base: "http://localhost:11434",      model: "llama3" },
-    };
-    const d = defs[config.agent];
+  if (config.agent === "openai" || config.agent === "anthropic") {
+    let defaultModel: string;
 
-    config.apiBase = (await ask(rl, "API base URL", d.base)).replace(/\/+$/, "");
-
-    if (config.agent !== "ollama") {
-      config.apiKey = await askSecret(rl, "API key");
-      if (config.apiKey) ok(`Key saved: ${c.dim}${maskKey(config.apiKey)}${c.reset}`);
-      else warn("No API key provided — requests may fail.");
+    if (config.agent === "openai") {
+      // Chinese provider sub-menu
+      const providers = [
+        { label: "DeepSeek              api.deepseek.com               (推荐，性价比极高)", base: "https://api.deepseek.com",                                     model: "deepseek-chat" },
+        { label: "Moonshot 月之暗面      api.moonshot.cn",               base: "https://api.moonshot.cn",                                        model: "moonshot-v1-8k" },
+        { label: "通义千问 (Qwen)        dashscope.aliyuncs.com",        base: "https://dashscope.aliyuncs.com/compatible-mode/v1",             model: "qwen-turbo" },
+        { label: "智谱 GLM              open.bigmodel.cn",              base: "https://open.bigmodel.cn/api/paas",                              model: "glm-4-flash" },
+        { label: "OpenAI 官方           api.openai.com                 (需翻墙)", base: "https://api.openai.com",                               model: "gpt-4o" },
+        { label: "自定义 API 地址...",   base: "",                                                                                               model: "gpt-4o" },
+      ];
+      const pi = await choose(rl, "选择服务商 (Select provider):", providers.map((p) => p.label));
+      const chosen = providers[pi];
+      if (chosen.base) {
+        config.apiBase = chosen.base;
+        ok(`API 地址: ${c.dim}${config.apiBase}${c.reset}`);
+      } else {
+        config.apiBase = (await ask(rl, "API base URL", "https://api.openai.com")).replace(/\/+$/, "");
+      }
+      defaultModel = chosen.model;
+    } else {
+      config.apiBase = "https://api.anthropic.com";
+      defaultModel = "claude-sonnet-4-6-20250514";
     }
+
+    config.apiKey = await askSecret(rl, "API key");
+    if (config.apiKey) ok(`Key saved: ${c.dim}${maskKey(config.apiKey)}${c.reset}`);
+    else warn("No API key provided — requests may fail.");
 
     info("Fetching available models...");
     const models = await fetchModels(config.agent, config.apiBase, config.apiKey);
@@ -263,10 +268,10 @@ export async function runSetup(): Promise<AgentConfig> {
       ok(`Found ${models.length} model(s).`);
       const display = models.slice(0, 20);
       const mi = await choose(rl, "Select a model:", [...display, "Enter manually..."]);
-      config.model = mi < display.length ? display[mi] : await ask(rl, "Model name", d.model);
+      config.model = mi < display.length ? display[mi] : await ask(rl, "Model name", defaultModel);
     } else {
       warn("Could not fetch model list — enter model name manually.");
-      config.model = await ask(rl, "Model name", d.model);
+      config.model = await ask(rl, "Model name", defaultModel);
     }
 
     info("Testing connection...");
