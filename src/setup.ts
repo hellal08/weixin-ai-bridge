@@ -62,7 +62,11 @@ function createRL(): readline.Interface {
     try { input = fs.createReadStream("/dev/tty"); } catch { /* Windows or no tty */ }
   }
   const rl = readline.createInterface({ input, output: process.stdout });
-  rl.on("close", () => { console.log(`\n${c.dim}Setup cancelled.${c.reset}`); process.exit(0); });
+  let completed = false;
+  rl.on("close", () => {
+    if (!completed) { console.log(`\n${c.dim}Setup cancelled.${c.reset}`); process.exit(0); }
+  });
+  (rl as typeof rl & { markCompleted: () => void }).markCompleted = () => { completed = true; };
   return rl;
 }
 
@@ -294,6 +298,7 @@ export async function runSetup(): Promise<AgentConfig> {
   saveConfig(config);
   ok(`Config saved to ${c.dim}${CONFIG_PATH}${c.reset}`);
   console.log(`\n${c.green}${c.bold}  Setup complete!${c.reset}\n`);
+  (rl as typeof rl & { markCompleted: () => void }).markCompleted?.();
   rl.close();
   return config;
 }
