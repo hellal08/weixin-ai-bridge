@@ -48,7 +48,7 @@ function decryptAes128Ecb(ciphertext: Buffer, key: Buffer): Buffer {
 async function cdnDownload(encryptQueryParam: string): Promise<Buffer> {
   const url = `${CDN_BASE}/download?encrypted_query_param=${encodeURIComponent(encryptQueryParam)}`;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS).unref();
   try {
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timer);

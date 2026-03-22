@@ -283,7 +283,7 @@ async function runStreamingReply(
       pendingSend = setTimeout(() => {
         pendingSend = null;
         sendUpdate(latestText, false).catch(() => {});
-      }, STREAM_THROTTLE_MS - elapsed);
+      }, STREAM_THROTTLE_MS - elapsed).unref();
     }
   };
 
@@ -405,13 +405,11 @@ export async function startMonitor(
       }
 
       const msgs = resp.msgs ?? [];
-      for (const msg of msgs) {
-        try {
-          await processMessage(cfg, agent, msg);
-        } catch (err) {
+      await Promise.all(msgs.map((msg) =>
+        processMessage(cfg, agent, msg).catch((err) => {
           console.error(`[monitor] 处理消息出错:`, err);
-        }
-      }
+        }),
+      ));
     } catch (err) {
       if (abortSignal?.aborted) break;
       consecutiveFailures++;

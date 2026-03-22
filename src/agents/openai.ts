@@ -158,6 +158,7 @@ export class OpenAIAgent implements AgentBackend {
       }
 
       let accumulated = "";
+      let doneSent = false;
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -185,14 +186,15 @@ export class OpenAIAgent implements AgentBackend {
               onChunk(accumulated, false);
             }
             if (parsed.choices[0]?.finish_reason === "stop") {
+              doneSent = true;
               onChunk(accumulated, true);
             }
           } catch { /* skip malformed lines */ }
         }
       }
 
-      // Ensure done is signalled
-      if (accumulated) {
+      // Ensure done is signalled exactly once
+      if (!doneSent && accumulated) {
         onChunk(accumulated, true);
       }
 
@@ -232,13 +234,20 @@ export class OpenAIAgent implements AgentBackend {
     }));
     if (message) content.push({ type: "text", text: message });
 
+    // Store text summary in history immediately — never persist base64 blobs
     const historyText = `[用户发送了${images.length}张图片]${message ? " " + message : ""}`;
-    history.push({ role: "user", content });
+    history.push({ role: "user", content: historyText } as TextMessage);
 
     if (history.length > MAX_MESSAGES_BEFORE_COMPRESS) {
       history = compressHistory(history);
       this.conversations.set(userId, history);
     }
+
+    // Build API messages with the actual multimodal content for the last user turn only
+    const apiMessages = [
+      ...history.slice(0, -1),
+      { role: "user", content },
+    ];
 
     const startTime = Date.now();
     console.log(`[openai] 视觉调用 ${this.model} (${images.length}图)`);
@@ -255,7 +264,7 @@ export class OpenAIAgent implements AgentBackend {
         },
         body: JSON.stringify({
           model: this.model,
-          messages: history,
+          messages: apiMessages,
           stream: !!onChunk,
         }),
         signal: controller.signal,
@@ -270,6 +279,7 @@ export class OpenAIAgent implements AgentBackend {
 
       if (onChunk) {
         let accumulated = "";
+        let doneSent = false;
         const reader = res.body!.getReader();
         const decoder = new TextDecoder();
         let buf = "";
@@ -291,23 +301,20 @@ export class OpenAIAgent implements AgentBackend {
               };
               const delta = parsed.choices[0]?.delta?.content;
               if (delta) { accumulated += delta; onChunk(accumulated, false); }
-              if (parsed.choices[0]?.finish_reason === "stop") onChunk(accumulated, true);
+              if (parsed.choices[0]?.finish_reason === "stop") {
+                doneSent = true;
+                onChunk(accumulated, true);
+              }
             } catch { /* skip */ }
           }
         }
-        if (accumulated) onChunk(accumulated, true);
+        if (!doneSent && accumulated) onChunk(accumulated, true);
         reply = accumulated;
       } else {
         const data = await res.json() as { choices: { message: { content: string } }[] };
         reply = data.choices[0]?.message?.content ?? "";
       }
 
-      // Replace multimodal history entry with text summary
-      let idx = -1;
-      for (let i = history.length - 1; i >= 0; i--) {
-        if (history[i].role === "user" && Array.isArray((history[i] as { content: unknown }).content)) { idx = i; break; }
-      }
-      if (idx >= 0) (history[idx] as TextMessage) = { role: "user", content: historyText };
       history.push({ role: "assistant", content: reply });
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);

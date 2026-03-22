@@ -142,7 +142,7 @@ const DEPS: Dep[] = [
     name: "xlsx2csv",
     purpose: "Excel 文本提取",
     check: () => !!which("xlsx2csv"),
-    install: () => installForPlatform("", "", undefined, "xlsx2csv"),
+    install: () => pipInstall("xlsx2csv"),
   },
 ];
 

@@ -80,14 +80,16 @@ async function main(): Promise<void> {
   const hasCLIAgent = values.agent || values["api-key"] || values["api-base"] || values.model;
 
   if (hasCLIAgent) {
-    // CLI flags provided — use them directly
+    // Merge CLI flags on top of saved config (flags win, missing flags keep saved values)
+    const saved = loadConfig() ?? {} as AgentConfig;
     agentConfig = {
-      agent: (values.agent || "openai") as AgentConfig["agent"],
-      model: values.model,
-      apiKey: values["api-key"],
-      apiBase: values["api-base"],
-      command: values.command,
-      systemPrompt: values["system-prompt"],
+      ...saved,
+      agent: (values.agent || saved.agent || "openai") as AgentConfig["agent"],
+      ...(values.model      && { model:        values.model }),
+      ...(values["api-key"] && { apiKey:        values["api-key"] }),
+      ...(values["api-base"] && { apiBase:      values["api-base"] }),
+      ...(values.command    && { command:       values.command }),
+      ...(values["system-prompt"] && { systemPrompt: values["system-prompt"] }),
     };
   } else if (values.setup || !configExists()) {
     // No config or --setup: run interactive wizard
